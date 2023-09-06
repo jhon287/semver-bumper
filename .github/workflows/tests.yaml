@@ -1,0 +1,61 @@
+---
+name: Semantic Versionning Bumper Tests
+
+on:
+  workflow_call:
+    inputs:
+      coverage_min:
+        description: Minimum code coverage
+        required: true
+        type: string
+
+permissions: read-all
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python: ['3.11', '3.12-dev']
+
+    name: Python-${{ matrix.python }}
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        if: "!endsWith(matrix.python, '-dev')"
+        with:
+          python-version: ${{ matrix.python }}
+
+      - name: Set up Python (deadsnakes)
+        uses: deadsnakes/action@v3.0.0
+        if: "endsWith(matrix.python, '-dev')"
+        with:
+          python-version: ${{ matrix.python }}
+
+      - name: Install Needed Python Libraries
+        run: pip install --no-cache-dir -r requirements.txt
+
+      - name: Install Pytest And Coverage
+        run: pip install pytest coverage
+
+      - name: Run Unit Testing
+        run: coverage run -m pytest -v
+
+      - name: Check Coverage
+        id: coverage
+        continue-on-error: true
+        run: coverage report -m --fail-under ${{ inputs.coverage_min }} main.py
+
+      - name: Coverage Result
+        run: |
+          if [ "${{ steps.coverage.outcome }}" == "failure" ]
+          then
+            echo "::warning::BNPPF code coverage NOK 💀 (<${{ inputs.coverage_min }}%)"
+            exit 1
+          else
+            echo "::notice::BNPPF code coverage OK 🎉 (>${{ inputs.coverage_min }}%)"
+          fi
