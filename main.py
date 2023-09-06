@@ -7,9 +7,8 @@ from git import Repo, InvalidGitRepositoryError, NoSuchPathError, TagReference
 from semver import Version
 
 
-DEFAULT_GIT_PATH: Final = getenv(key='GIT_PATH', default=getcwd())
-DEFAULT_NO_RELEASE_BUMP: Final = \
-    getenv(key='NO_RELEASE_BUMP', default='norelease')
+DEFAULT_GIT_PATH: Final = getenv(key="GIT_PATH", default=getcwd())
+DEFAULT_NO_RELEASE_BUMP: Final = getenv(key="NO_RELEASE_BUMP", default="norelease")
 
 
 def get_repo(path=DEFAULT_GIT_PATH) -> Repo:
@@ -18,15 +17,14 @@ def get_repo(path=DEFAULT_GIT_PATH) -> Repo:
         repo: Repo = Repo(path=path)
         return repo
     except InvalidGitRepositoryError as exc:
-        raise InvalidGitRepositoryError(f"Invalid git repository '{path}'") \
-            from exc
+        raise InvalidGitRepositoryError(f"Invalid git repository '{path}'") from exc
     except NoSuchPathError as exc:
         raise NoSuchPathError(f"No such path '{path}'") from exc
 
 
 def get_commits(repo: Repo, tag: Optional[str] = None) -> list[str]:
     """Get git commit messages"""
-    rev: str | None = None if tag is None else f'{tag}..HEAD'
+    rev: str | None = None if tag is None else f"{tag}..HEAD"
     return [commit.message.strip() for commit in repo.iter_commits(rev=rev)]
 
 
@@ -37,58 +35,62 @@ def detect_release_type(commits: list[str]) -> Optional[str]:
     major: int = 0
 
     for commit in commits:
-        if commit.startswith('fixup!'):
+        if commit.startswith("fixup!"):
             continue
-        matches: Optional[Match[str]] = \
-            match(pattern=r'^(.*):(.*)$',
-                  string=commit.replace('\n', ''))
+        matches: Optional[Match[str]] = match(
+            pattern=r"^(.*):(.*)$", string=commit.replace("\n", "")
+        )
         if matches is None:
             continue
         type_scope, _ = matches.groups()
-        if 'BREAKING CHANGE:' in commit or type_scope.endswith('!'):
+        if "BREAKING CHANGE:" in commit or type_scope.endswith("!"):
             major += 1
-        elif type_scope.startswith('feat'):
+        elif type_scope.startswith("feat"):
             minor += 1
-        elif type_scope.startswith('fix'):
+        elif type_scope.startswith("fix"):
             patch += 1
 
     if major > 0:
-        return 'major'
+        return "major"
     if minor > 0:
-        return 'minor'
+        return "minor"
     if patch > 0:
-        return 'patch'
+        return "patch"
     return None
 
 
 def bump_version(version: Version, release_type: Optional[str]) -> Version:
     """Bump semantic version using release type"""
-    if release_type == 'patch' or \
-            (release_type is None and DEFAULT_NO_RELEASE_BUMP == 'patch'):
+    if release_type == "patch" or (
+        release_type is None and DEFAULT_NO_RELEASE_BUMP == "patch"
+    ):
         return version.bump_patch()
-    if release_type == 'minor' or \
-            (release_type is None and DEFAULT_NO_RELEASE_BUMP == 'minor'):
+    if release_type == "minor" or (
+        release_type is None and DEFAULT_NO_RELEASE_BUMP == "minor"
+    ):
         return version.bump_minor()
-    if release_type == 'major' or \
-            (release_type is None and DEFAULT_NO_RELEASE_BUMP == 'major'):
+    if release_type == "major" or (
+        release_type is None and DEFAULT_NO_RELEASE_BUMP == "major"
+    ):
         return version.bump_major()
     return version
 
 
 def get_last_tag(repo: Repo) -> Optional[str]:
     """Get last tag"""
-    sorted_tags: list[TagReference] = \
-        sorted(repo.tags, key=lambda t: t.commit.committed_datetime)
+    sorted_tags: list[TagReference] = sorted(
+        repo.tags, key=lambda t: t.commit.committed_datetime
+    )
     if not sorted_tags:
         return None
-    return str(sorted_tags.pop()).split('/').pop()
+    return str(sorted_tags.pop()).split("/").pop()
 
 
 def get_last_version(tag: Optional[str]) -> Version:
     """Get last version using tag"""
     if tag is None:
         return Version(major=0)
-    return Version.parse(version=tag.lstrip('v'))
+    return Version.parse(version=tag.lstrip("v"))
 
 
 def main() -> None:  # pragma: no cover
@@ -99,12 +101,11 @@ def main() -> None:  # pragma: no cover
     try:
         commits: list[str] = get_commits(repo=repo, tag=last_tag)
         release_type = detect_release_type(commits=commits)
-        new_version = \
-            bump_version(version=my_semver, release_type=release_type)
+        new_version = bump_version(version=my_semver, release_type=release_type)
         print(new_version)
     except Exception as exc:
-        raise ValueError('Bump semantic version failed') from exc
+        raise ValueError("Bump semantic version failed") from exc
 
 
-if __name__ == '__main__':  # pragma: no cover
+if __name__ == "__main__":  # pragma: no cover
     main()
