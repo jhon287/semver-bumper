@@ -10,9 +10,9 @@ from main import (
     detect_release_type,
     bump_version,
     get_commits,
-    get_last_version,
-    get_last_tag,
+    get_version_from_tag,
     get_repo,
+    get_latest_semver_tag,
 )
 
 
@@ -30,11 +30,9 @@ class Test(TestCase):
             "fix!: upgrade copyparty to version 1.8.7 (CVE-2023-38501)",
         ]
         feat_commit: str = "feat: use Docker multi-stage build"
-        fix_commit: str = "fix: upgrade copyparty to version 1.8.7 " "(CVE-2023-38501)"
+        fix_commit: str = "fix: upgrade copyparty to version 1.8.7 (CVE-2023-38501)"
         ci_commit: str = "ci: enable verbose mode while running pytest"
-        invalid_commit: str = (
-            "Introduce a request id and a reference to " "latest request"
-        )
+        invalid_commit: str = "Introduce a request id and a reference to latest request"
         fixup_commit: str = "fixup! feat!: use Docker multi-stage build"
 
         # Breaking/Major Release
@@ -136,25 +134,26 @@ class Test(TestCase):
                 second=Version(major=0, minor=1),
             )
 
-    def test_get_last_version(self):
+    def test_get_version_from_tag(self):
         """Test get_last_version()"""
         self.assertEqual(
-            first=get_last_version(tag="v1.2.3"),
+            first=get_version_from_tag(tag="v1.2.3"),
             second=Version(major=1, minor=2, patch=3),
         )
-        self.assertEqual(first=get_last_version(tag=None), second=Version(major=0))
+        self.assertEqual(first=get_version_from_tag(tag=None), second=Version(major=0))
 
-    def test_get_last_tag(self):
-        """Test get_last_tag()"""
-        with TemporaryDirectory() as tmpdirname:
-            committer: Actor = Actor(
-                name="Jonathan Sabbe", email="jonathan.sabbe@speos.be"
-            )
-            repo: Repo = Repo.init(path=tmpdirname, initial_branch="main")
-            readme_file: str = f"{tmpdirname}/README.md"
-            Path(readme_file).touch()
-            repo.index.add(items=[readme_file])
-            repo.index.commit(message="feat: initial commit", committer=committer)
-            self.assertIsNone(obj=get_last_tag(repo=repo))
-            repo.create_tag(path="v0.1.0")
-            self.assertEqual(first=get_last_tag(repo=repo), second="v0.1.0")
+    def test_get_latest_semver_tag(self):
+        """Test Get Latest Semantic Versioning Using Tag"""
+        tags: list[str] = [
+            "v1.2.3",
+            "fix-branch",
+            "v3.0.0",
+            "v1.0.0",
+            "v0.2.3",
+            "0.0.1",
+        ]
+
+        self.assertEqual(first=get_latest_semver_tag(tags=tags), second="v3.0.0")
+        self.assertEqual(
+            first=get_latest_semver_tag(tags=["pouet", "toto", "abc"]), second=None
+        )
