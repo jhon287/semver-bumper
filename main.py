@@ -76,18 +76,28 @@ def bump_version(version: Version, release_type: Optional[str]) -> Version:
     return version
 
 
-def get_last_tag(repo: Repo) -> Optional[str]:
-    """Get last tag"""
-    sorted_tags: list[TagReference] = sorted(
-        repo.tags, key=lambda t: t.commit.committed_datetime
-    )
-    if not sorted_tags:
+def get_latest_semver_tag(tags: list[str]) -> str | None:
+    """Get latest semantic version tag"""
+    tags_versions: dict[str, Version] = {}
+
+    for tag in tags:
+        tag_no_prefix: str = tag.removeprefix("v")
+        if Version.is_valid(version=tag_no_prefix):
+            tags_versions.update({tag: Version.parse(version=tag_no_prefix)})
+
+    if not tags_versions:
         return None
-    return str(sorted_tags.pop()).split("/").pop()
+
+    lkeys: list[str] = list(tags_versions.keys())
+    lvalues: list[Version] = list(tags_versions.values())
+
+    get_latest_semver = sorted(lvalues).pop()
+
+    return lkeys.pop(lvalues.index(get_latest_semver))
 
 
-def get_last_version(tag: Optional[str]) -> Version:
-    """Get last version using tag"""
+def get_version_from_tag(tag: str | None) -> Version:
+    """Get version using tag"""
     if tag is None:
         return Version(major=0)
     return Version.parse(version=tag.lstrip("v"))
@@ -96,10 +106,11 @@ def get_last_version(tag: Optional[str]) -> Version:
 def main() -> None:  # pragma: no cover
     """Main method"""
     repo: Repo = get_repo()
-    last_tag: str = get_last_tag(repo=repo)
-    my_semver: Version = get_last_version(tag=last_tag)
+    tags: list[TagReference] = [tag.name for tag in repo.tags]
+    my_semver_tag: str | None = get_latest_semver_tag(tags=tags)
+    my_semver: Version = get_version_from_tag(tag=my_semver_tag)
     try:
-        commits: list[str] = get_commits(repo=repo, tag=last_tag)
+        commits: list[str] = get_commits(repo=repo, tag=my_semver_tag)
         release_type = detect_release_type(commits=commits)
         new_version = bump_version(version=my_semver, release_type=release_type)
         print(new_version)
